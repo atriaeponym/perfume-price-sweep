@@ -1,0 +1,40 @@
+name: sweep
+
+# The price of every indexed perfume page, one job per shop side by side, twice a day: each run reads the pages
+# not read for 20 hours, oldest first, for at most 5 h 30 (src/sweep.ts).
+on:
+  schedule:
+    - cron: '7 4 * * *'
+    - cron: '7 16 * * *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'reading time per shop, in minutes'
+        default: '330'
+
+permissions:
+  contents: read
+
+concurrency: sweep
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        shop: [parfumsetmoi, parfumdreams, perfumesclub, parfumdo, myorigines, sabina, lookfantastic]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run -s typecheck
+      - name: Sweep
+        env:
+          SUPABASE_URL: https://nvhprfxakvcryxxnpcqo.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node src/sweep-main.ts ${{ matrix.shop }} ${{ inputs.minutes || '330' }}

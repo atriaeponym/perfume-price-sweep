@@ -1,0 +1,19 @@
+{
+  "name": "perfume-price-sweep",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "sweep": "node src/sweep-main.ts",
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "playwright-core": "1.64.1"
+  }
+}
