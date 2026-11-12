@@ -1,9 +1,10 @@
 // The sweep: the price of every indexed page of one shop, oldest reading first, until the time budget runs out
 // (supabase/migrations/0011_pp_ref_offer.sql). Each shop runs in its own job of the public collector repository,
 // so the shops are read side by side, twice a day, each page at most once a day; within a shop, one page at a time, 2 s apart or the shop's crawl delay.
-// What the shop could not price is noted on the index row and read again at its next turn.
+// Notino and Marionnaud are read with the runner's Chrome like their followed pages (collect.ts, BROWSER_HOSTS; the owner's
+// decision, 12/11/2026). What the shop could not price is noted on the index row and read again at its next turn.
 
-import { BROWSER_HOSTS, httpFetch, readableHere, shippingFor, type ShippingRule } from './collect.ts';
+import { httpFetch, readableHere, shippingFor, type ShippingRule } from './collect.ts';
 import { insert, remove, select, update, upsert } from './db.ts';
 import { examineLink, type LinkProduct } from './links.ts';
 import { robotsFor } from './requests.ts';
@@ -67,8 +68,6 @@ export async function sweep(merchant: string, budgetMin: number): Promise<void> 
     if (rows.length === 0) break;
     for (const { url } of rows) {
       if (Date.now() >= end) break;
-      // Notino and Marionnaud are read with a browser only for the perfumes followed, once a day (decision 8)
-      if (BROWSER_HOSTS.includes(new URL(url).host)) { console.log(`${merchant}: read only for the followed perfumes, not swept`); return report(); }
       if (!readableHere(url)) { console.log(`${merchant}: not readable from this runner, stopped`); return report(); }
       seenThisRun.add(url);
       const robots = await robotsFor(url);

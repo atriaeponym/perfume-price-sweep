@@ -12,6 +12,9 @@ on:
       minutes:
         description: 'reading time per shop, in minutes'
         default: '330'
+      shops:
+        description: 'shops to read, as a JSON list (empty: all)'
+        default: ''
       index:
         description: 'rebuild the search index first'
         type: boolean
@@ -19,8 +22,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency: sweep
 
 jobs:
   index:
@@ -43,12 +44,13 @@ jobs:
   sweep:
     needs: index
     if: ${{ !cancelled() }}
+    concurrency: sweep-${{ matrix.shop }}
     runs-on: ubuntu-latest
     timeout-minutes: 345
     strategy:
       fail-fast: false
       matrix:
-        shop: [parfumsetmoi, parfumdreams, perfumesclub, parfumdo, myorigines, sabina, lookfantastic]
+        shop: ${{ fromJSON(inputs.shops || '["parfumsetmoi", "notino", "parfumdreams", "perfumesclub", "parfumdo", "myorigines", "sabina", "marionnaud", "lookfantastic"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
