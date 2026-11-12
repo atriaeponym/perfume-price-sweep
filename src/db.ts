@@ -12,12 +12,25 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
   return { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...extra };
 }
 
+// a dropped connection is tried again, twice, 5 then 20 s later (12/11/2026: one ECONNRESET stopped a 5-hour sweep)
+async function send(method: string, path: string, body?: unknown, extra?: Record<string, string>): Promise<Response> {
+  for (const wait of [5_000, 20_000, 0]) {
+    try {
+      return await fetch(`${env('SUPABASE_URL')}/rest/v1/${path}`, {
+        method,
+        headers: headers(extra),
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (e) {
+      if (!wait) throw e;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw new Error('unreachable');
+}
+
 async function call<T>(method: string, path: string, body?: unknown, extra?: Record<string, string>): Promise<T> {
-  const res = await fetch(`${env('SUPABASE_URL')}/rest/v1/${path}`, {
-    method,
-    headers: headers(extra),
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const res = await send(method, path, body, extra);
   const text = await res.text();
   if (!res.ok) throw new Error(`${method} ${path}: HTTP ${res.status} ${text}`);
   return (text ? JSON.parse(text) : null) as T;
