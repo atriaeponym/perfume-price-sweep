@@ -1,7 +1,8 @@
 name: sweep
 
-# The price of every indexed perfume page, one job per shop side by side, twice a day: each run reads the pages
-# not read for 20 hours, oldest first, for at most 5 h 30 (src/sweep.ts).
+# Every morning the search index is rebuilt from the shops' sitemaps (src/sitemaps.ts); then, twice a day, the price
+# of every indexed perfume page, one job per shop side by side: each run reads the pages not read for 20 hours,
+# oldest first, for at most 5 h 30 (src/sweep.ts).
 on:
   schedule:
     - cron: '7 4 * * *'
@@ -11,6 +12,10 @@ on:
       minutes:
         description: 'reading time per shop, in minutes'
         default: '330'
+      index:
+        description: 'rebuild the search index first'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,7 +23,26 @@ permissions:
 concurrency: sweep
 
 jobs:
+  index:
+    if: github.event.schedule == '7 4 * * *' || inputs.index
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Search index
+        env:
+          SUPABASE_URL: https://nvhprfxakvcryxxnpcqo.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node src/index-main.ts
+
   sweep:
+    needs: index
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 345
     strategy:
