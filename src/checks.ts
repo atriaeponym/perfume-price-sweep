@@ -50,10 +50,11 @@ export function pickVariant(list: Candidate[], wanted: Wanted, title: string): P
 }
 
 /** Anti-bot or access refusal: never bypassed, reported as blocked. A reCAPTCHA site key set up for the
- *  shop's forms is not a challenge (Perfumes Club, « RecaptchaKey » on every product page, 02/11/2026). */
+ *  shop's forms is not a challenge (Perfumes Club, « RecaptchaKey » on every product page, 02/11/2026, and
+ *  « RecaptchaV3Key » too since then: every page was taken for refused, 13/11/2026). */
 export function isBlocked(status: number, html: string): boolean {
   if (status === 403 || status === 429 || status === 503) return true;
-  return /just a moment|<title>un instant|enable javascript and cookies|cf_chl_opt|captcha(?!Key)|access denied/i.test(html.slice(0, 5000));
+  return /just a moment|<title>un instant|enable javascript and cookies|cf_chl_opt|captcha(?!(?:V\d+)?Key)|access denied/i.test(html.slice(0, 5000));
 }
 
 /** The shop says the product no longer exists, while the page may still carry its old JSON-LD
