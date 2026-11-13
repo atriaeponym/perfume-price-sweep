@@ -2,7 +2,8 @@ name: sweep
 
 # Every morning the search index is rebuilt from the shops' sitemaps (src/sitemaps.ts); then, twice a day, the price
 # of every indexed perfume page, one job per shop side by side: each run reads the pages not read for 20 hours,
-# oldest first, for at most 5 h 30 (src/sweep.ts). Parfumdo refuses these runners: it is read elsewhere.
+# oldest first, for at most 5 h 30 (src/sweep.ts). Notino, the slowest (a browser), is read in three parts side by
+# side. Parfumdo, Parfums Moins Chers and Perfumes Club refuse these runners: they are read elsewhere.
 on:
   schedule:
     - cron: '7 4 * * *'
@@ -50,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shop: ${{ fromJSON(inputs.shops || '["parfumsetmoi", "notino", "parfumdreams", "perfumesclub", "myorigines", "sabina", "marionnaud", "lookfantastic"]') }}
+        shop: ${{ fromJSON(inputs.shops || '["parfumsetmoi", "notino.0of3", "notino.1of3", "notino.2of3", "parfumdreams", "myorigines", "sabina", "marionnaud", "lookfantastic"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -57,12 +57,13 @@ export const atHome = !('Deno' in globalThis) && process.env.HOME_CHROME === '1'
 const hostOf = (url: string) => (URL.canParse(url) ? new URL(url).host : '');
 export const needsBrowser = (url: string) => BROWSER_HOSTS.includes(hostOf(url)) || HOME_HOSTS.includes(hostOf(url));
 export const canBrowse = !('Deno' in globalThis);
-// Shops whose sitemaps answer GitHub's runners with an empty list and no error, while a home connection gets them
-// whole: their index is read by the home run (Parfumdo, 12/11/2026: 0 pages from GitHub for a week, 2 217 perfumes
-// from the Mac).
-export const INDEX_HOME_HOSTS = ['www.parfumdo.com'];
-/** Whether this run rebuilds that shop's index: the home shops and INDEX_HOME_HOSTS at home only. */
-export const indexedHere = (url: string) => INDEX_HOME_HOSTS.includes(hostOf(url)) ? atHome : readableHere(url);
+// Shops that refuse GitHub's runners (or answer them an empty sitemap) but serve Supabase: their index and their
+// prices are read by the link-request Edge Function only (0012, 0014; Parfumdo 12/11/2026, whose index the owner's Mac
+// read until then; Parfums Moins Chers and Perfumes Club 13/11/2026, Cloudflare refusing GitHub since 03/11).
+export const EDGE_HOSTS = ['www.parfumdo.com', 'www.parfumsmoinschers.com', 'www.perfumesclub.fr'];
+const onEdge = 'Deno' in globalThis;
+/** Whether this run rebuilds that shop's index: the Edge shops on the Edge Function only. */
+export const indexedHere = (url: string) => EDGE_HOSTS.includes(hostOf(url)) ? onEdge : readableHere(url);
 /** Whether this run reads that page: the home run reads only the home shops, the others never read them. */
 export function readableHere(url: string): boolean {
   if (HOME_HOSTS.includes(hostOf(url))) return atHome;

@@ -52,17 +52,22 @@ export function changesOf(before: { key: string; price: number }[], after: Offer
 
 interface Shop { id: string; name: string; currency: string; shipping_rule: ShippingRule | null }
 
-export async function sweep(merchant: string, budgetMin: number): Promise<void> {
+/** One part of a shop read side by side with the others (Notino, 13/11/2026: the whole shop in a day instead of
+ *  three): part [k] of [n] takes the pages whose pp_index.shard (0 to 11, from the address) is k modulo n. */
+export interface Part { k: number; n: number }
+
+export async function sweep(merchant: string, budgetMin: number, part?: Part): Promise<void> {
   const end = Date.now() + budgetMin * 60e3;
   const [shop] = await select<Shop>(`pp_merchant?select=id,name,currency,shipping_rule&id=eq.${merchant}&active=is.true`);
   if (!shop) throw new Error(`no active shop ${merchant}`);
   let refusedInARow = 0;
   const counts = { read: 0, priced: 0, offers: 0, changes: 0, refused: 0, other: 0 };
   const started = Date.now();
+  const shards = part ? `&shard=in.(${Array.from({ length: 12 }, (_, i) => i).filter((i) => i % part.n === part.k).join(',')})` : '';
   while (Date.now() < end) {
     // pages never read or read more than 20 hours ago: two runs a day, each page at most once a day
     const due = new Date(Date.now() - 20 * 3600e3).toISOString();
-    const rows = (await select<{ url: string }>(`pp_index?select=url&merchant_id=eq.${merchant}&hidden=is.false` +
+    const rows = (await select<{ url: string }>(`pp_index?select=url&merchant_id=eq.${merchant}&hidden=is.false${shards}` +
       `&or=(priced_at.is.null,priced_at.lt.${due})&order=priced_at.asc.nullsfirst,url.asc&limit=100`))
       .filter((r) => !seenThisRun.has(r.url));
     if (rows.length === 0) break;
@@ -107,7 +112,7 @@ export async function sweep(merchant: string, budgetMin: number): Promise<void> 
 
   function report() {
     const min = (Date.now() - started) / 60e3;
-    console.log(`${shop.name}: ${counts.read} pages read in ${min.toFixed(1)} min (${(min * 60 / Math.max(1, counts.read)).toFixed(1)} s each), ` +
+    console.log(`${shop.name}${part ? ` (part ${part.k + 1}/${part.n})` : ''}: ${counts.read} pages read in ${min.toFixed(1)} min (${(min * 60 / Math.max(1, counts.read)).toFixed(1)} s each), ` +
       `${counts.priced} priced, ${counts.offers} sizes, ${counts.changes} price changes, ${counts.refused} refused, ${counts.other} without price`);
   }
 }
