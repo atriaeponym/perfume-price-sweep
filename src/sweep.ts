@@ -50,6 +50,18 @@ export function changesOf(before: { key: string; price: number }[], after: Offer
     .map((o) => ({ key: o.key, old_price: old.get(o.key)!, new_price: o.price }));
 }
 
+/** The rows written for one page. Every row carries price_since (PostgREST refuses a batch whose rows have different
+ *  keys, 13/11/2026): now for a new size or a new price, else the date already stored. */
+export function rowsOf(url: string, merchant: string, before: { key: string; price: number; price_since: string | null }[],
+  after: Offer[], now: string) {
+  const old = new Map(before.map((b) => [b.key, b]));
+  return after.map((o) => {
+    const b = old.get(o.key);
+    const since = b && Number(b.price) === o.price && b.price_since ? b.price_since : now;
+    return { url, merchant_id: merchant, ...o, read_at: now, price_since: since };
+  });
+}
+
 interface Shop { id: string; name: string; currency: string; shipping_rule: ShippingRule | null }
 
 /** One part of a shop read side by side with the others (Notino, 13/11/2026: the whole shop in a day instead of
@@ -81,15 +93,11 @@ export async function sweep(merchant: string, budgetMin: number, part?: Part): P
       counts.read++;
       if (r.ok) {
         const offers = offersOf(r.products, shop.currency, shop.shipping_rule);
-        const before = await select<{ key: string; price: number }>(`pp_ref_offer?select=key,price&url=eq.${encodeURIComponent(url)}`);
+        const before = await select<{ key: string; price: number; price_since: string | null }>(
+          `pp_ref_offer?select=key,price,price_since&url=eq.${encodeURIComponent(url)}`);
         const changes = changesOf(before, offers);
         if (changes.length) await insert('pp_ref_change', changes.map((c) => ({ url, ...c, at: now })));
-        const changed = new Set(changes.map((c) => c.key));
-        const known = new Set(before.map((b) => b.key));
-        if (offers.length) {
-          await upsert('pp_ref_offer', offers.map((o) => ({ url, merchant_id: merchant, ...o, read_at: now,
-            ...(changed.has(o.key) || !known.has(o.key) ? { price_since: now } : {}) })), 'url,key');
-        }
+        if (offers.length) await upsert('pp_ref_offer', rowsOf(url, merchant, before, offers, now), 'url,key');
         const gone = before.filter((b) => !offers.some((o) => o.key === b.key)).map((b) => b.key);
         for (const key of gone) await remove('pp_ref_offer', `url=eq.${encodeURIComponent(url)}&key=eq.${encodeURIComponent(key)}`);
         await update('pp_index', `url=eq.${encodeURIComponent(url)}`, { priced_at: now, price_note: offers.length ? null : 'no perfume size' });
