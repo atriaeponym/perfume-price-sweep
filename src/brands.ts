@@ -101,13 +101,16 @@ export function tidyName(name: string, brand: string, shouting = false): string 
   return nameCase(words.join(' '), shouting);
 }
 
+// real perfumes whose whole name is shorter than three letters (Yves Saint Laurent « Y », 2017)
+const SHORT_NAMES = new Set(['Yves Saint Laurent|Y']);
+
 /** What a user must never see in a name (the audit and tools/verify.py print these). */
 export function nameProblems(rows: { brand: string; name: string; concentration: string }[]): string[] {
   const out: string[] = [];
   for (const r of rows) {
     const shown = `${r.brand} | ${r.name}`;
     if (/['’\-–&]$/.test(r.name) || SMALL.has(r.name.split(' ').at(-1)!.toLowerCase())) out.push(`name cut short: ${shown}`);
-    if ((r.name.match(/\p{L}/gu) ?? []).length < 3 && !/\d/.test(r.name)) out.push(`name too short: ${shown}`);
+    if ((r.name.match(/\p{L}/gu) ?? []).length < 3 && !/\d/.test(r.name) && !SHORT_NAMES.has(`${r.brand}|${r.name}`)) out.push(`name too short: ${shown}`);
     if (brandName(r.brand) !== r.brand) out.push(`brand written « ${r.brand} », expected « ${brandName(r.brand)} »`);
     if (tidyName(r.name, r.brand) !== r.name) out.push(`name written « ${r.name} », expected « ${tidyName(r.name, r.brand)} » (${r.brand})`);
     // a collection title before a known name: the same perfume entered twice

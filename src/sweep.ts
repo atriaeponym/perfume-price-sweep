@@ -100,7 +100,9 @@ export async function sweep(merchant: string, budgetMin: number, part?: Part): P
         if (offers.length) await upsert('pp_ref_offer', rowsOf(url, merchant, before, offers, now), 'url,key');
         const gone = before.filter((b) => !offers.some((o) => o.key === b.key)).map((b) => b.key);
         for (const key of gone) await remove('pp_ref_offer', `url=eq.${encodeURIComponent(url)}&key=eq.${encodeURIComponent(key)}`);
-        await update('pp_index', `url=eq.${encodeURIComponent(url)}`, { priced_at: now, price_note: offers.length ? null : 'no perfume size' });
+        // the bottle's picture too, shown behind the perfume in the app's search (1.2.12)
+        await update('pp_index', `url=eq.${encodeURIComponent(url)}`, { priced_at: now, price_note: offers.length ? null : 'no perfume size',
+          ...(r.image ? { image: r.image } : {}) });
         refusedInARow = 0;
         if (offers.length) counts.priced++;
         counts.offers += offers.length;

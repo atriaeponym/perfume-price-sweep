@@ -5,7 +5,7 @@
 import { brandName, tidyName } from './brands.ts';
 import { isBlocked, isGone, concentrationsIn } from './checks.ts';
 import type { Fetcher } from './collect.ts';
-import { pageTitle, type Candidate } from './jsonld.ts';
+import { pageTitle, pictureOf, type Candidate } from './jsonld.ts';
 import { readers } from './readers.ts';
 import type { Robots } from './robots.ts';
 
@@ -38,7 +38,7 @@ export interface LinkShop {
   country: string; // ISO 3166-1 from the domain, 'ZZ' when the domain says nothing
 }
 
-export type LinkResult = { ok: true; shop: LinkShop; products: LinkProduct[] } | { ok: false; reason: RefusalCode };
+export type LinkResult = { ok: true; shop: LinkShop; products: LinkProduct[]; image?: string | null } | { ok: false; reason: RefusalCode };
 
 // testers, gift sets, refills and samples are excluded (decision 8)
 const EXCLUDED = /\b(testeur|tester|coffret|gift ?set|recharge|refill|[eé]chantillon|sample|miniature)\b/i;
@@ -148,5 +148,6 @@ export async function examineLink(raw: string, robots: Robots, fetcher: Fetcher)
       country: COUNTRY_BY_TLD[tld] ?? 'ZZ',
     },
     products,
+    image: pictureOf(page.body),
   };
 }
